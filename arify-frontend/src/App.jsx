@@ -1,5 +1,3 @@
-
-
 import { Routes, Route, Navigate } from "react-router-dom";
 import Book from "./booking/Book";
 
