@@ -2,9 +2,23 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import {
+    Container,
+    Card,
+    CardContent,
+    Typography,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem,
+    Box,
+    Button,
+    Stack,
+} from "@mui/material";
+
+import {
     getAvailableDates,
     getAvailableGroups,
-    getSlotsForGroup
+    getSlotsForGroup,
 } from "./slotLogic.js";
 
 export default function Book() {
@@ -23,38 +37,32 @@ export default function Book() {
     const [confirming, setConfirming] = useState(false);
     const [confirmed, setConfirmed] = useState(false);
 
-    // --------------------------------------------------
-    // HARD GUARD
-    // --------------------------------------------------
+    /* ---------------- HARD GUARD ---------------- */
     if (!phone) {
         return (
-            <div className="max-w-md mx-auto p-4 text-red-600">
-                Invalid booking link. Please open this link from WhatsApp.
-            </div>
+            <Container maxWidth="sm" sx={{ mt: 8 }}>
+                <Typography color="error" align="center">
+                    Invalid booking link. Please open this link from WhatsApp.
+                </Typography>
+            </Container>
         );
     }
 
-    // --------------------------------------------------
-    // LOAD DOCTORS
-    // --------------------------------------------------
+    /* ---------------- LOAD DOCTORS ---------------- */
     useEffect(() => {
         fetch("/api/booking/doctors")
-            .then(r => r.json())
-            .then(setDoctors)
+            .then((r) => r.json())
+            .then((data) => {
+                if (Array.isArray(data)) setDoctors(data);
+                else if (Array.isArray(data.data)) setDoctors(data.data);
+                else setError("Invalid doctor list");
+            })
             .catch(() => setError("Failed to load doctors"));
     }, []);
 
-    // --------------------------------------------------
-    // SELECT DOCTOR → SET SESSION STATE (CRITICAL)
-    // --------------------------------------------------
+    /* ---------------- LOAD SLOTS ---------------- */
     useEffect(() => {
         if (!doctorId) return;
-
-        fetch("/api/booking/select-doctor", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ phone, doctorId })
-        });
 
         setDate("");
         setGroup("");
@@ -63,25 +71,25 @@ export default function Book() {
         setSlots([]);
 
         fetch(`/api/booking/slots/all?doctorId=${doctorId}&phone=${phone}`)
-            .then(r => r.json())
+            .then((r) => r.json())
             .then(setSlots)
             .catch(() => setError("Failed to load slots"));
-
     }, [doctorId, phone]);
 
-    // --------------------------------------------------
-    // DERIVED (V1 LOGIC)
-    // --------------------------------------------------
+    /* ---------------- DERIVED ---------------- */
     const dates = useMemo(() => getAvailableDates(slots), [slots]);
-    const groups = useMemo(() => date ? getAvailableGroups(slots, date) : [], [slots, date]);
-    const filteredSlots = useMemo(() => group ? getSlotsForGroup(slots, date, group) : [], [slots, date, group]);
+    const groups = useMemo(
+        () => (date ? getAvailableGroups(slots, date) : []),
+        [slots, date]
+    );
+    const filteredSlots = useMemo(
+        () => (group ? getSlotsForGroup(slots, date, group) : []),
+        [slots, date, group]
+    );
 
-    // --------------------------------------------------
-    // CONFIRM BOOKING
-    // --------------------------------------------------
+    /* ---------------- CONFIRM ---------------- */
     async function confirmBooking() {
         if (confirming) return;
-
         setConfirming(true);
         setError("");
 
@@ -89,12 +97,11 @@ export default function Book() {
             const res = await fetch("/api/booking/confirm", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ phone, slotId })
+                body: JSON.stringify({ phone, slotId }),
             });
 
             if (!res.ok) throw new Error();
             setConfirmed(true);
-
         } catch {
             setError("Slot already booked or session expired.");
         } finally {
@@ -102,76 +109,201 @@ export default function Book() {
         }
     }
 
-    // --------------------------------------------------
-    // UI
-    // --------------------------------------------------
+    /* ---------------- ERROR ---------------- */
     if (error) {
-        return <div className="text-red-600 max-w-md mx-auto p-4">{error}</div>;
-    }
-
-    if (confirmed) {
         return (
-            <div className="max-w-md mx-auto p-4 text-green-700 text-center">
-                <h2 className="text-xl font-bold mb-2">Almost done!</h2>
-                <p>✅ Slot locked.<br />📲 Check WhatsApp to pay.</p>
-            </div>
+            <Container maxWidth="sm" sx={{ mt: 8 }}>
+                <Typography color="error" align="center">
+                    {error}
+                </Typography>
+            </Container>
         );
     }
 
+    /* ================= CONFIRMED SCREEN ================= */
+    if (confirmed) {
+        const selectedDoctor = doctors.find((d) => d.id == doctorId);
+        const selectedSlot = filteredSlots.find((s) => s.id == slotId);
+
+        return (
+            <Container maxWidth="sm" sx={{ mt: 6 }}>
+                <Card>
+                    <CardContent>
+                        <Stack spacing={3} alignItems="center">
+                            <Typography variant="h5" fontWeight={500} color="success.main">
+                                Change Slot or Book
+                            </Typography>
+
+                            <Box
+                                sx={{
+                                    border: "1px solid #e0e0e0",
+                                    borderRadius: 2,
+                                    p: 2,
+                                    width: "100%",
+                                    bgcolor: "#fafafa",
+                                }}
+                            >
+                                <Typography><b>Doctor:</b> {selectedDoctor?.name}</Typography>
+                                <Typography><b>Date:</b> {date}</Typography>
+                                <Typography>
+                                    <b>Time:</b>{" "}
+                                    {new Date(selectedSlot.slot).toLocaleTimeString("en-IN", {
+                                        timeZone: "Asia/Kolkata",
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                        hour12: true,
+                                    })}
+                                </Typography>
+                            </Box>
+
+                            {/* ACTION BUTTONS */}
+                            <Stack spacing={2} alignItems="center">
+                                {/* CHANGE SLOT — SECONDARY */}
+                                <Button
+                                    variant="contained"
+                                    color="error"
+                                    sx={{
+                                        px: 3,
+                                        py: 0.9,
+                                        minWidth: 220,
+                                        borderRadius: 2,
+                                        textTransform: "none",
+                                        fontWeight: 500,
+                                    }}
+                                    onClick={() => {
+                                        setConfirmed(false);
+                                        setDoctorId("");
+                                        setSlots([]);
+                                        setDate("");
+                                        setGroup("");
+                                        setSlotId("");
+                                    }}
+                                >
+                                    Change Slot
+                                </Button>
+
+                                {/* BOOK SLOT — PRIMARY */}
+                                <Button
+                                    variant="contained"
+                                    color="success"
+                                    sx={{
+                                        px: 5,
+                                        py: 1.2,
+                                        minWidth: 220,
+                                        borderRadius: 2,
+                                        textTransform: "none",
+                                        fontWeight: 500,
+                                        fontSize: "1.05rem",
+                                    }}
+                                    onClick={() => {
+                                        window.location.href = "https://payments.cashfree.com/forms/arify3";
+                                    }}
+
+                                >
+                                    Book
+                                </Button>
+                            </Stack>
+
+                            <Typography variant="body2" color="text.secondary" align="center">
+                                You can also complete payment later from WhatsApp.
+                            </Typography>
+                        </Stack>
+                    </CardContent>
+                </Card>
+            </Container>
+        );
+    }
+
+    /* ================= BOOKING FLOW ================= */
     return (
-        <div className="max-w-md mx-auto p-4 space-y-4">
-            <h1 className="text-xl font-bold">Book Appointment</h1>
+        <Container maxWidth="sm" sx={{ mt: 6, pb: 6 }}>
+            <Card>
+                <CardContent>
+                    <Stack spacing={3}>
+                        <Typography variant="h5" align="center" fontWeight={700}>
+                            Book Appointment
+                        </Typography>
 
-            <select value={doctorId} onChange={e => setDoctorId(e.target.value)}>
-                <option value="">Select Doctor</option>
-                {doctors.map(d => (
-                    <option key={d.id} value={d.id}>{d.name}</option>
-                ))}
-            </select>
+                        <FormControl fullWidth>
+                            <InputLabel>Doctor</InputLabel>
+                            <Select value={doctorId} label="Doctor" onChange={(e) => setDoctorId(e.target.value)}>
+                                {doctors.map((d) => (
+                                    <MenuItem key={d.id} value={d.id}>{d.name}</MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
 
-            {dates.length > 0 && (
-                <select value={date} onChange={e => { setDate(e.target.value); setGroup(""); }}>
-                    <option value="">Select Date</option>
-                    {dates.map(d => <option key={d} value={d}>{d}</option>)}
-                </select>
-            )}
+                        <Box display="grid" gridTemplateColumns={{ xs: "1fr", sm: "1fr 1fr" }} gap={2}>
+                            {dates.length > 0 && (
+                                <FormControl fullWidth>
+                                    <InputLabel>Date</InputLabel>
+                                    <Select
+                                        value={date}
+                                        label="Date"
+                                        onChange={(e) => {
+                                            setDate(e.target.value);
+                                            setGroup("");
+                                        }}
+                                    >
+                                        {dates.map((d) => (
+                                            <MenuItem key={d} value={d}>{d}</MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
+                            )}
 
-            {groups.length > 0 && (
-                <select value={group} onChange={e => setGroup(e.target.value)}>
-                    <option value="">Select Time Range</option>
-                    {groups.includes("morning") && <option value="morning">Morning</option>}
-                    {groups.includes("before_lunch") && <option value="before_lunch">Before Lunch</option>}
-                    {groups.includes("after_lunch") && <option value="after_lunch">After Lunch</option>}
-                    {groups.includes("evening") && <option value="evening">Evening</option>}
-                    {groups.includes("late_evening") && <option value="late_evening">Late Evening</option>}
-                </select>
-            )}
+                            {groups.length > 0 && (
+                                <FormControl fullWidth>
+                                    <InputLabel>Time Range</InputLabel>
+                                    <Select value={group} label="Time Range" onChange={(e) => setGroup(e.target.value)}>
+                                        {groups.map((g) => (
+                                            <MenuItem key={g} value={g}>{g.replace("_", " ")}</MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
+                            )}
+                        </Box>
 
-            {filteredSlots.length > 0 && (
-                <select value={slotId} onChange={e => setSlotId(e.target.value)}>
-                    <option value="">Select Slot</option>
-                    {filteredSlots.map(s => (
-                        <option key={s.id} value={s.id}>
-                            {new Date(s.slot).toLocaleTimeString("en-IN", {
-                                timeZone: "Asia/Kolkata",
-                                hour: "2-digit",
-                                minute: "2-digit",
-                                hour12: true
-                            })}
-                        </option>
-                    ))}
-                </select>
-            )}
+                        {filteredSlots.length > 0 && (
+                            <FormControl fullWidth>
+                                <InputLabel>Available Slots</InputLabel>
+                                <Select value={slotId} label="Available Slots" onChange={(e) => setSlotId(e.target.value)}>
+                                    {filteredSlots.map((s) => (
+                                        <MenuItem key={s.id} value={s.id}>
+                                            {new Date(s.slot).toLocaleTimeString("en-IN", {
+                                                timeZone: "Asia/Kolkata",
+                                                hour: "2-digit",
+                                                minute: "2-digit",
+                                                hour12: true,
+                                            })}
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                        )}
 
-            {slotId && (
-                <button
-                    onClick={confirmBooking}
-                    disabled={confirming}
-                    className="w-full bg-green-600 text-white py-2 rounded"
-                >
-                    {confirming ? "Confirming…" : "Confirm Booking"}
-                </button>
-            )}
-        </div>
+                        {slotId && (
+                            <Button
+                                variant="contained"
+                                color="success"
+                                size="large"
+                                onClick={confirmBooking}
+                                disabled={confirming}
+                                sx={{
+                                    alignSelf: "center",
+                                    px: 5,
+                                    py: 1.2,
+                                    borderRadius: 2,
+                                    textTransform: "none",
+                                    fontWeight: 700,
+                                }}
+                            >
+                                {confirming ? "Confirming…" : "Confirm Booking"}
+                            </Button>
+                        )}
+                    </Stack>
+                </CardContent>
+            </Card>
+        </Container>
     );
 }

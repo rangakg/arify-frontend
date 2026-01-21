@@ -9,7 +9,7 @@ export default defineConfig({
 
     // ✅ allow Cloudflare tunnel
     allowedHosts: [
-      "https://arify-frontend.onrender.com",
+      "arify-frontend.onrender.com",
     ],
 
     // ✅ THIS WAS MISSING (CRITICAL)
