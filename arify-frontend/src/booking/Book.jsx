@@ -21,6 +21,8 @@ import {
     getSlotsForGroup,
 } from "./slotLogic.js";
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
+
 export default function Book() {
     const [params] = useSearchParams();
     const phone = params.get("phone");
@@ -50,7 +52,7 @@ export default function Book() {
 
     /* ---------------- LOAD DOCTORS ---------------- */
     useEffect(() => {
-        fetch("/api/booking/doctors")
+        fetch(`${API_BASE}/api/booking/doctors`)
             .then((r) => r.json())
             .then((data) => {
                 if (Array.isArray(data)) setDoctors(data);
@@ -70,7 +72,7 @@ export default function Book() {
         setConfirmed(false);
         setSlots([]);
 
-        fetch(`/api/booking/slots/all?doctorId=${doctorId}&phone=${phone}`)
+        fetch(`${API_BASE}/api/booking/slots/all?doctorId=${doctorId}&phone=${phone}`)
             .then((r) => r.json())
             .then(setSlots)
             .catch(() => setError("Failed to load slots"));
@@ -94,7 +96,7 @@ export default function Book() {
         setError("");
 
         try {
-            const res = await fetch("/api/booking/confirm", {
+            const res = await fetch(`${API_BASE}/api/booking/confirm`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ phone, slotId }),
@@ -134,15 +136,7 @@ export default function Book() {
                                 Change Slot or Book
                             </Typography>
 
-                            <Box
-                                sx={{
-                                    border: "1px solid #e0e0e0",
-                                    borderRadius: 2,
-                                    p: 2,
-                                    width: "100%",
-                                    bgcolor: "#fafafa",
-                                }}
-                            >
+                            <Box sx={{ border: "1px solid #e0e0e0", borderRadius: 2, p: 2, width: "100%" }}>
                                 <Typography><b>Doctor:</b> {selectedDoctor?.name}</Typography>
                                 <Typography><b>Date:</b> {date}</Typography>
                                 <Typography>
@@ -156,20 +150,11 @@ export default function Book() {
                                 </Typography>
                             </Box>
 
-                            {/* ACTION BUTTONS */}
                             <Stack spacing={2} alignItems="center">
-                                {/* CHANGE SLOT — SECONDARY */}
                                 <Button
                                     variant="contained"
                                     color="error"
-                                    sx={{
-                                        px: 3,
-                                        py: 0.9,
-                                        minWidth: 220,
-                                        borderRadius: 2,
-                                        textTransform: "none",
-                                        fontWeight: 500,
-                                    }}
+                                    sx={{ minWidth: 220 }}
                                     onClick={() => {
                                         setConfirmed(false);
                                         setDoctorId("");
@@ -182,31 +167,18 @@ export default function Book() {
                                     Change Slot
                                 </Button>
 
-                                {/* BOOK SLOT — PRIMARY */}
                                 <Button
                                     variant="contained"
                                     color="success"
-                                    sx={{
-                                        px: 5,
-                                        py: 1.2,
-                                        minWidth: 220,
-                                        borderRadius: 2,
-                                        textTransform: "none",
-                                        fontWeight: 500,
-                                        fontSize: "1.05rem",
-                                    }}
-                                    onClick={() => {
-                                        window.location.href = "https://payments.cashfree.com/forms/arify3";
-                                    }}
-
+                                    sx={{ minWidth: 220 }}
+                                    onClick={() =>
+                                    (window.location.href =
+                                        "https://payments.cashfree.com/forms/arify3")
+                                    }
                                 >
                                     Book
                                 </Button>
                             </Stack>
-
-                            <Typography variant="body2" color="text.secondary" align="center">
-                                You can also complete payment later from WhatsApp.
-                            </Typography>
                         </Stack>
                     </CardContent>
                 </Card>
@@ -237,14 +209,7 @@ export default function Book() {
                             {dates.length > 0 && (
                                 <FormControl fullWidth>
                                     <InputLabel>Date</InputLabel>
-                                    <Select
-                                        value={date}
-                                        label="Date"
-                                        onChange={(e) => {
-                                            setDate(e.target.value);
-                                            setGroup("");
-                                        }}
-                                    >
+                                    <Select value={date} label="Date" onChange={(e) => { setDate(e.target.value); setGroup(""); }}>
                                         {dates.map((d) => (
                                             <MenuItem key={d} value={d}>{d}</MenuItem>
                                         ))}
@@ -289,14 +254,7 @@ export default function Book() {
                                 size="large"
                                 onClick={confirmBooking}
                                 disabled={confirming}
-                                sx={{
-                                    alignSelf: "center",
-                                    px: 5,
-                                    py: 1.2,
-                                    borderRadius: 2,
-                                    textTransform: "none",
-                                    fontWeight: 700,
-                                }}
+                                sx={{ alignSelf: "center" }}
                             >
                                 {confirming ? "Confirming…" : "Confirm Booking"}
                             </Button>
