@@ -35,6 +35,7 @@ export default function Book() {
     const [group, setGroup] = useState("");
     const [slotId, setSlotId] = useState("");
 
+    const [appointment, setAppointment] = useState(null); // ✅ NEW
     const [error, setError] = useState("");
     const [confirming, setConfirming] = useState(false);
     const [confirmed, setConfirmed] = useState(false);
@@ -46,6 +47,77 @@ export default function Book() {
                 <Typography color="error" align="center">
                     Invalid booking link. Please open this link from WhatsApp.
                 </Typography>
+            </Container>
+        );
+    }
+
+    /* ---------------- CHECK PAID APPOINTMENT (SAFE) ---------------- */
+    useEffect(() => {
+        fetch(`${API_BASE}/api/booking/appointment?phone=${phone}`)
+            .then((r) => (r.ok ? r.json() : null))
+            .then((data) => {
+                if (data && data.status === "paid") {
+                    setAppointment(data);
+                }
+            })
+            .catch(() => {
+                /* fail silently – do NOT block booking */
+            });
+    }, [phone]);
+
+    /* ================= MY APPOINTMENT (PAID USER) ================= */
+    if (appointment?.status === "paid") {
+        return (
+            <Container maxWidth="sm" sx={{ mt: 6 }}>
+                <Card>
+                    <CardContent>
+                        <Stack spacing={3} alignItems="center">
+                            <Typography variant="h5" fontWeight={600}>
+                                My Appointment
+                            </Typography>
+
+                            <Box
+                                sx={{
+                                    border: "1px solid #e0e0e0",
+                                    borderRadius: 2,
+                                    p: 2,
+                                    width: "100%",
+                                    bgcolor: "#fafafa",
+                                }}
+                            >
+                                <Typography><b>Doctor:</b> {appointment.doctor?.name}</Typography>
+                                <Typography><b>Date:</b> {new Date(appointment.slot?.slot).toLocaleDateString("en-IN")}</Typography>
+                                <Typography>
+                                    <b>Time:</b>{" "}
+                                    {new Date(appointment.slot?.slot).toLocaleTimeString("en-IN", {
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                        hour12: true,
+                                    })}
+                                </Typography>
+                                <Typography color="success.main"><b>Status:</b> Paid</Typography>
+                            </Box>
+
+                            <Button
+                                variant="outlined"
+                                color="warning"
+                                sx={{ minWidth: 240 }}
+                                onClick={() => {
+                                    window.open(
+                                        "https://wa.me/919999999999?text=I want to reschedule my appointment",
+                                        "_blank"
+                                    );
+                                }}
+                            >
+                                Reschedule Appointment
+                            </Button>
+
+                            <Typography variant="body2" color="text.secondary" align="center">
+                                For any changes, please contact the clinic on WhatsApp.
+                            </Typography>
+                        </Stack>
+                    </CardContent>
+                </Card>
             </Container>
         );
     }
@@ -122,7 +194,7 @@ export default function Book() {
         );
     }
 
-    /* ================= CONFIRMED SCREEN ================= */
+    /* ================= CONFIRMED SCREEN (LOCKED SLOT) ================= */
     if (confirmed) {
         const selectedDoctor = doctors.find((d) => d.id == doctorId);
         const selectedSlot = filteredSlots.find((s) => s.id == slotId);
@@ -132,8 +204,8 @@ export default function Book() {
                 <Card>
                     <CardContent>
                         <Stack spacing={3} alignItems="center">
-                            <Typography variant="h5" fontWeight={500} color="success.main">
-                                Change Slot or Book
+                            <Typography variant="h5" color="success.main">
+                                Slot Locked
                             </Typography>
 
                             <Box sx={{ border: "1px solid #e0e0e0", borderRadius: 2, p: 2, width: "100%" }}>
@@ -142,7 +214,6 @@ export default function Book() {
                                 <Typography>
                                     <b>Time:</b>{" "}
                                     {new Date(selectedSlot.slot).toLocaleTimeString("en-IN", {
-                                        timeZone: "Asia/Kolkata",
                                         hour: "2-digit",
                                         minute: "2-digit",
                                         hour12: true,
@@ -236,7 +307,6 @@ export default function Book() {
                                     {filteredSlots.map((s) => (
                                         <MenuItem key={s.id} value={s.id}>
                                             {new Date(s.slot).toLocaleTimeString("en-IN", {
-                                                timeZone: "Asia/Kolkata",
                                                 hour: "2-digit",
                                                 minute: "2-digit",
                                                 hour12: true,
