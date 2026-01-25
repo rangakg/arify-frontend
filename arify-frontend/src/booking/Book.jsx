@@ -27,6 +27,9 @@ export default function Book() {
     const [params] = useSearchParams();
     const phone = params.get("phone");
 
+    const mode = params.get("mode"); // "reschedule" | null
+    const isReschedule = mode === "reschedule";
+
     const [doctors, setDoctors] = useState([]);
     const [slots, setSlots] = useState([]);
 
@@ -35,7 +38,7 @@ export default function Book() {
     const [group, setGroup] = useState("");
     const [slotId, setSlotId] = useState("");
 
-    const [appointment, setAppointment] = useState(null); // ✅ NEW
+    const [appointment, setAppointment] = useState(null);
     const [error, setError] = useState("");
     const [confirming, setConfirming] = useState(false);
     const [confirmed, setConfirmed] = useState(false);
@@ -51,7 +54,7 @@ export default function Book() {
         );
     }
 
-    /* ---------------- CHECK PAID APPOINTMENT (SAFE) ---------------- */
+    /* ---------------- CHECK PAID APPOINTMENT ---------------- */
     useEffect(() => {
         fetch(`${API_BASE}/api/booking/appointment?phone=${phone}`)
             .then((r) => (r.ok ? r.json() : null))
@@ -60,13 +63,11 @@ export default function Book() {
                     setAppointment(data);
                 }
             })
-            .catch(() => {
-                /* fail silently – do NOT block booking */
-            });
+            .catch(() => { });
     }, [phone]);
 
     /* ================= MY APPOINTMENT (PAID USER) ================= */
-    if (appointment?.status === "paid") {
+    if (appointment?.status === "paid" && !isReschedule) {
         return (
             <Container maxWidth="sm" sx={{ mt: 6 }}>
                 <Card>
@@ -86,7 +87,10 @@ export default function Book() {
                                 }}
                             >
                                 <Typography><b>Doctor:</b> {appointment.doctor?.name}</Typography>
-                                <Typography><b>Date:</b> {new Date(appointment.slot?.slot).toLocaleDateString("en-IN")}</Typography>
+                                <Typography>
+                                    <b>Date:</b>{" "}
+                                    {new Date(appointment.slot?.slot).toLocaleDateString("en-IN")}
+                                </Typography>
                                 <Typography>
                                     <b>Time:</b>{" "}
                                     {new Date(appointment.slot?.slot).toLocaleTimeString("en-IN", {
@@ -95,25 +99,25 @@ export default function Book() {
                                         hour12: true,
                                     })}
                                 </Typography>
-                                <Typography color="success.main"><b>Status:</b> Paid</Typography>
+                                <Typography color="success.main">
+                                    <b>Status:</b> Paid
+                                </Typography>
                             </Box>
 
                             <Button
-                                variant="outlined"
+                                variant="contained"
                                 color="warning"
                                 sx={{ minWidth: 240 }}
                                 onClick={() => {
-                                    window.open(
-                                        "https://wa.me/919999999999?text=I want to reschedule my appointment",
-                                        "_blank"
-                                    );
+                                    setDoctorId(appointment.doctor?.id);
+                                    setAppointment(null);
                                 }}
                             >
-                                Reschedule Appointment
+                                Change Slot
                             </Button>
 
                             <Typography variant="body2" color="text.secondary" align="center">
-                                For any changes, please contact the clinic on WhatsApp.
+                                Your payment is already completed. You can change your slot.
                             </Typography>
                         </Stack>
                     </CardContent>
@@ -194,7 +198,7 @@ export default function Book() {
         );
     }
 
-    /* ================= CONFIRMED SCREEN (LOCKED SLOT) ================= */
+    /* ================= CONFIRMED SCREEN ================= */
     if (confirmed) {
         const selectedDoctor = doctors.find((d) => d.id == doctorId);
         const selectedSlot = filteredSlots.find((s) => s.id == slotId);
@@ -205,7 +209,7 @@ export default function Book() {
                     <CardContent>
                         <Stack spacing={3} alignItems="center">
                             <Typography variant="h5" color="success.main">
-                                Slot Locked
+                                {isReschedule ? "Slot Rescheduled" : "Slot Locked"}
                             </Typography>
 
                             <Box sx={{ border: "1px solid #e0e0e0", borderRadius: 2, p: 2, width: "100%" }}>
@@ -221,23 +225,7 @@ export default function Book() {
                                 </Typography>
                             </Box>
 
-                            <Stack spacing={2} alignItems="center">
-                                <Button
-                                    variant="contained"
-                                    color="error"
-                                    sx={{ minWidth: 220 }}
-                                    onClick={() => {
-                                        setConfirmed(false);
-                                        setDoctorId("");
-                                        setSlots([]);
-                                        setDate("");
-                                        setGroup("");
-                                        setSlotId("");
-                                    }}
-                                >
-                                    Change Slot
-                                </Button>
-
+                            {!isReschedule && (
                                 <Button
                                     variant="contained"
                                     color="success"
@@ -249,7 +237,13 @@ export default function Book() {
                                 >
                                     Book
                                 </Button>
-                            </Stack>
+                            )}
+
+                            {isReschedule && (
+                                <Typography color="success.main">
+                                    ✅ Your appointment has been rescheduled
+                                </Typography>
+                            )}
                         </Stack>
                     </CardContent>
                 </Card>
@@ -264,14 +258,20 @@ export default function Book() {
                 <CardContent>
                     <Stack spacing={3}>
                         <Typography variant="h5" align="center" fontWeight={700}>
-                            Book Appointment
+                            {isReschedule ? "Reschedule Appointment" : "Book Appointment"}
                         </Typography>
 
                         <FormControl fullWidth>
                             <InputLabel>Doctor</InputLabel>
-                            <Select value={doctorId} label="Doctor" onChange={(e) => setDoctorId(e.target.value)}>
+                            <Select
+                                value={doctorId}
+                                label="Doctor"
+                                onChange={(e) => setDoctorId(e.target.value)}
+                            >
                                 {doctors.map((d) => (
-                                    <MenuItem key={d.id} value={d.id}>{d.name}</MenuItem>
+                                    <MenuItem key={d.id} value={d.id}>
+                                        {d.name}
+                                    </MenuItem>
                                 ))}
                             </Select>
                         </FormControl>
@@ -280,9 +280,18 @@ export default function Book() {
                             {dates.length > 0 && (
                                 <FormControl fullWidth>
                                     <InputLabel>Date</InputLabel>
-                                    <Select value={date} label="Date" onChange={(e) => { setDate(e.target.value); setGroup(""); }}>
+                                    <Select
+                                        value={date}
+                                        label="Date"
+                                        onChange={(e) => {
+                                            setDate(e.target.value);
+                                            setGroup("");
+                                        }}
+                                    >
                                         {dates.map((d) => (
-                                            <MenuItem key={d} value={d}>{d}</MenuItem>
+                                            <MenuItem key={d} value={d}>
+                                                {d}
+                                            </MenuItem>
                                         ))}
                                     </Select>
                                 </FormControl>
@@ -291,9 +300,15 @@ export default function Book() {
                             {groups.length > 0 && (
                                 <FormControl fullWidth>
                                     <InputLabel>Time Range</InputLabel>
-                                    <Select value={group} label="Time Range" onChange={(e) => setGroup(e.target.value)}>
+                                    <Select
+                                        value={group}
+                                        label="Time Range"
+                                        onChange={(e) => setGroup(e.target.value)}
+                                    >
                                         {groups.map((g) => (
-                                            <MenuItem key={g} value={g}>{g.replace("_", " ")}</MenuItem>
+                                            <MenuItem key={g} value={g}>
+                                                {g.replace("_", " ")}
+                                            </MenuItem>
                                         ))}
                                     </Select>
                                 </FormControl>
@@ -303,7 +318,11 @@ export default function Book() {
                         {filteredSlots.length > 0 && (
                             <FormControl fullWidth>
                                 <InputLabel>Available Slots</InputLabel>
-                                <Select value={slotId} label="Available Slots" onChange={(e) => setSlotId(e.target.value)}>
+                                <Select
+                                    value={slotId}
+                                    label="Available Slots"
+                                    onChange={(e) => setSlotId(e.target.value)}
+                                >
                                     {filteredSlots.map((s) => (
                                         <MenuItem key={s.id} value={s.id}>
                                             {new Date(s.slot).toLocaleTimeString("en-IN", {
@@ -326,7 +345,7 @@ export default function Book() {
                                 disabled={confirming}
                                 sx={{ alignSelf: "center" }}
                             >
-                                {confirming ? "Confirming…" : "Confirm Booking"}
+                                {confirming ? "Confirming…" : "Confirm Slot"}
                             </Button>
                         )}
                     </Stack>
